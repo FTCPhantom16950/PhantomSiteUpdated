@@ -39,7 +39,7 @@ jobs:
         with:
           context: ./BackendSite
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-BackendSite:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backendsite:latest
 
       # 2. Сборка и отправка ФРОНТЕНДА (React/Three.js)
       - name: Build and push Frontend
