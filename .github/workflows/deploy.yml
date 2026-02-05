@@ -32,14 +32,14 @@ jobs:
       - name: Build and push Backend
         uses: docker/build-push-action@v4
         with:
-          context: ./backend
+          context: ./BackendSite
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
 
       - name: Build and push Frontend
         uses: docker/build-push-action@v4
         with:
-          context: ./frontend
+          context: ./frontendsite
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
 
