@@ -37,17 +37,17 @@ jobs:
       - name: Build and push Backend
         uses: docker/build-push-action@v4
         with:
-          context: ./backend
+          context: ./BackendSite
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-BackendSite:latest
 
       # 2. Сборка и отправка ФРОНТЕНДА (React/Three.js)
       - name: Build and push Frontend
         uses: docker/build-push-action@v4
         with:
-          context: ./frontend
+          context: ./frontendsite
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontendsite:latest
 
   deploy:
     needs: build-and-push
@@ -67,7 +67,7 @@ jobs:
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Переходим в папку проекта (ЗАМЕНИТЕ 'app' НА ВАШУ ПАПКУ ЕСЛИ ОНА ДРУГАЯ)
-            cd /app
+            cd /home/PhantomSite
             
             # Скачиваем свежие версии образов
             docker pull ghcr.io/$IMAGE_NAME-backend:latest
