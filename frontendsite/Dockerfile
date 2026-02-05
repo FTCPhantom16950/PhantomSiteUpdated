@@ -1,5 +1,5 @@
 # Сборка
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 # Копируем package.json и package-lock.json (вместо yarn.lock)
@@ -15,7 +15,7 @@ RUN npm run build
 
 # Раздача через Nginx
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/out /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
