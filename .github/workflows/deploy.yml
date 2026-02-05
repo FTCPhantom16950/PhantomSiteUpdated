@@ -1,13 +1,12 @@
-name: CI/CD Pipeline for PhantomSiteUpdated
+name: CI/CD Pipeline
 
-# Триггер: запускаем только при пуше в ветку main
 on:
   push:
     branches: [ "main" ]
 
 env:
   REGISTRY: ghcr.io
-  # Используем переменную github.repository (например, User/PhantomSiteUpdated)
+  # В env actions имя пока с большими буквами, но мы это исправим в шагах
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -16,15 +15,12 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Шаг для приведения имени образа к нижнему регистру (Docker не любит заглавные буквы)
       - name: Lowercase image name
-        run: |
-          echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v2
@@ -33,26 +29,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 1. Сборка и отправка БЭКЕНДА (Spring)
       - name: Build and push Backend
         uses: docker/build-push-action@v4
         with:
-          context: ./BackendSite
+          context: ./backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backendsite:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
 
-      # 2. Сборка и отправка ФРОНТЕНДА (React/Three.js)
       - name: Build and push Frontend
         uses: docker/build-push-action@v4
         with:
-          context: ./frontendsite
+          context: ./frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontendsite:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Copy docker-compose to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "/home/PhantomSite"
+
       - name: Deploy to VDS via SSH
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -60,25 +66,27 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # Приводим имя к нижнему регистру и внутри скрипта сервера
-            IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+            # 1. Формируем правильное имя (все буквы маленькие)
+            LOWERCASE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
             
-            # Логинимся в реестр GitHub на сервере, чтобы иметь доступ к скачиванию
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Переходим в папку проекта (ЗАМЕНИТЕ 'app' НА ВАШУ ПАПКУ ЕСЛИ ОНА ДРУГАЯ)
+            # 2. Идем в папку
+            mkdir -p /home/PhantomSite
             cd /home/PhantomSite
             
-            # Скачиваем свежие версии образов
-            docker pull ghcr.io/$IMAGE_NAME-backend:latest
-            docker pull ghcr.io/$IMAGE_NAME-frontend:latest
+            # 3. СОЗДАЕМ .env ФАЙЛ!
+            # Это решит проблему с переменными в docker-compose
+            echo "IMAGE_NAME=$LOWERCASE_NAME" > .env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
             
-            # Останавливаем старые контейнеры
+            # 4. Логинимся
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # 5. Скачиваем (используя переменную из только что созданного .env)
+            # Docker-compose сам подхватит .env файл, поэтому тут можно просто pull
+            docker-compose pull
+            
+            # 6. Перезапускаем
             docker-compose down
-            
-            # Запускаем новые (передаем пароль БД через переменную окружения)
-            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             docker-compose up -d
             
-            # Чистим старые неиспользуемые образы, чтобы не забить место на диске
             docker image prune -f
