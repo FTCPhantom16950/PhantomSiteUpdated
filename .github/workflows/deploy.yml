@@ -1,0 +1,84 @@
+name: CI/CD Pipeline for PhantomSiteUpdated
+
+# Триггер: запускаем только при пуше в ветку main
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  # Используем переменную github.repository (например, User/PhantomSiteUpdated)
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Шаг для приведения имени образа к нижнему регистру (Docker не любит заглавные буквы)
+      - name: Lowercase image name
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 1. Сборка и отправка БЭКЕНДА (Spring)
+      - name: Build and push Backend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+
+      # 2. Сборка и отправка ФРОНТЕНДА (React/Three.js)
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VDS via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # Приводим имя к нижнему регистру и внутри скрипта сервера
+            IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+            
+            # Логинимся в реестр GitHub на сервере, чтобы иметь доступ к скачиванию
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Переходим в папку проекта (ЗАМЕНИТЕ 'app' НА ВАШУ ПАПКУ ЕСЛИ ОНА ДРУГАЯ)
+            cd /app
+            
+            # Скачиваем свежие версии образов
+            docker pull ghcr.io/$IMAGE_NAME-backend:latest
+            docker pull ghcr.io/$IMAGE_NAME-frontend:latest
+            
+            # Останавливаем старые контейнеры
+            docker-compose down
+            
+            # Запускаем новые (передаем пароль БД через переменную окружения)
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            docker-compose up -d
+            
+            # Чистим старые неиспользуемые образы, чтобы не забить место на диске
+            docker image prune -f
