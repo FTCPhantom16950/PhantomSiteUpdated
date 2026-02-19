@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: url("/public/next.svg");
+  --background: url("/next.svg");
 }
 
 body {
