@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: url("/public/next.svg");
   --foreground: #fa0000;
 }
 
@@ -18,7 +18,8 @@
 }
 
 body {
-  background: var(--background);
+  box-sizing: border-box;
+  background-image: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
