@@ -6,13 +6,9 @@ services:
     restart: always
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/teamdb
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      # Убедитесь, что юзернейм совпадает с тем, что в БД (по умолчанию postgres)
-      SPRING_DATASOURCE_USERNAME: postgres
     ports:
       - "127.0.0.1:8081:8080"
-    depends_on:
-      - db
+
 
   frontend:
     # И ЗДЕСЬ ТОЖЕ ПЕРЕМЕННАЯ
@@ -20,16 +16,3 @@ services:
     restart: always
     ports:
       - "127.0.0.1:3000:80"
-
-  db:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_DB: teamdb
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_USER: postgres
-    volumes:
-      - db_data:/var/lib/postgresql/data
-
-volumes:
-  db_data:
