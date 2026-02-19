@@ -6,7 +6,7 @@
 #back{
   width: 100%;
   height: 100%;
-  background-image: var(--background);
+  background-color: aquamarine;
 }
 body {
   border: 10px solid green;
